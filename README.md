@@ -3,6 +3,6 @@ Insper
 ## Atividade Integradora
 
  - Luigi
- - Renan
+ - Renan:       renanrmc@al.insper.edu.br
  - Mainara
  - Caio Garcia: caioag3@al.insper.edu.br
