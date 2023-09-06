@@ -1,0 +1,154 @@
+---
+title: "Atividade Integradora 1 Trimestre"
+output: html_document
+date: "2023-09-06"
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(dbplyr)
+library(ggplot2)      #Biblioteca para plots gráficos
+library(rpart)        #Biblioteca para árvore de regressão
+library(rpart.plot)   
+library(skimr)        #Biblioteca para overview dos dados
+library(rsample)
+library(ranger)       #Biblioteca para Random Forest
+library(janitor)      #Biblioteca pra remoção de colunas
+library(glmnet)       #Biblioteca para modelos de regressão com encolhimento (Ridge, LASSO, elastic-net)
+library(plotmo)       #Plotar os gráficos dos coeficientes Ridge
+
+```
+
+# Lendo os dados
+
+```{r}
+df <- read.csv("data_2012.csv")
+
+skim(df)
+summary(df)
+
+```
+
+# visualizações iniciais:
+
+```{r}
+
+```
+
+# Vamos considerar os seguintes modelos:
+
+1. Linear regresion
+2. shrinkage methods
+3. Random Forest
+4. Boosting methods
+
+
+# Treinamento x Teste
+
+```{r}
+set.seed(123)
+
+splits <- initial_split(df, prop = .8)
+
+treinamento <- training(splits)
+teste <- testing(splits)
+```
+
+# Tabela de comparação dos modelos de predição
+
+```{r}
+resultados <- tibble(modelo = c("Linear", "Shrinkage", 
+                                "Random Forest", "Boosting"),
+                     EQM = NA,
+                     R_squared = NA)
+```
+
+# Modelo 1
+---
+Regressão
+
+```{r}
+# Fit
+
+
+# Predição
+
+
+# Calculo EQM
+EQM <- 
+
+# Calculo R quadrado
+r2 <- 
+
+# Salvando resultados:
+resultados$EQM[resultados$modelo == "modelo"] <- EQM
+resultados$R_squared[resultados$modelo == "modelo"] <- r2
+```
+
+# Modelo 2
+---
+Encolhimento
+
+```{r}
+# Fit
+
+
+# Predição
+
+
+# Calculo EQM
+EQM <- 
+
+# Calculo R quadrado
+r2 <- 
+
+# Salvando resultados:
+resultados$EQM[resultados$modelo == "modelo"] <- EQM
+resultados$R_squared[resultados$modelo == "modelo"] <- r2
+```
+
+# Modelo 3
+---
+Random Forest
+
+```{r}
+# Fit
+
+
+# Predição
+
+
+# Calculo EQM
+EQM <- 
+
+# Calculo R quadrado
+r2 <- 
+
+# Salvando resultados:
+resultados$EQM[resultados$modelo == "modelo"] <- EQM
+resultados$R_squared[resultados$modelo == "modelo"] <- r2
+```
+
+# Modelo 4
+---
+Boosting
+
+```{r}
+# Fit
+
+
+# Predição
+
+
+# Calculo EQM
+EQM <- 
+
+# Calculo R quadrado
+r2 <- 
+
+# Salvando resultados:
+resultados$EQM[resultados$modelo == "modelo"] <- EQM
+resultados$R_squared[resultados$modelo == "modelo"] <- r2
+```
+
