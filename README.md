@@ -4,5 +4,5 @@ Insper
 
  - Luigi
  - Renan: renanrmc@al.insper.edu.br
- - Mainara
+ - Mainara: mainarapsc@al.insper.edu.br
  - Caio Garcia: caioag3@al.insper.edu.br
