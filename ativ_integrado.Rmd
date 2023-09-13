@@ -190,10 +190,10 @@ Salvando resultados:
 
 ```{r}
 # Salvando resultados:
-resultados_logist$accuracy[resultados_logist$modelo == "primeiro"] <- accuracy
-resultados_logist$AUC[resultados_logist$modelo == "primeiro"] <- auc_value
-resultados_logist$sensitivity[resultados_logist$modelo == "primeiro"] <- sensitivity_value
-resultados_logist$specificity[resultados_logist$modelo == "primeiro"] <- specificity_value
+resultados_logist$accuracy[resultados_logist$modelo == "segundo"] <- accuracy
+resultados_logist$AUC[resultados_logist$modelo == "segundo"] <- auc_value
+resultados_logist$sensitivity[resultados_logist$modelo == "segundo"] <- sensitivity_value
+resultados_logist$specificity[resultados_logist$modelo == "segundo"] <- specificity_value
 ```
 
 ### Melhores resultados do modelo Logístico:
