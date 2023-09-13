@@ -4,6 +4,8 @@ output: html_document
 date: "2023-09-06"
 ---
 
+
+
 ```{r setup, include=FALSE}
 
 library(tidyverse)
@@ -32,6 +34,18 @@ skim(df)
 summary(df)
 
 ```
+###
+
+```{r}
+# Transformando as variáveis em categorias
+df$ind2 <- as.factor(df$ind2)
+df$ind <- as.factor(df$ind)
+
+# Verificar se a transformação funcionou
+str(df)
+
+```
+
 
 # visualizações iniciais:
 
@@ -60,7 +74,7 @@ table(df$fechado)
 ```{r}
 set.seed(123)
 
-splits <- initial_split(df, prop = .8, strata = "fechado")
+splits <- initial_split(df, prop = .8, strata ='fechado')
 
 treinamento <- training(splits)
 teste <- testing(splits)
@@ -309,14 +323,131 @@ plot(roc_obj_lasso, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1
 
 ## Modelo 3
 
+Árvore de Regressão
+
+```{r}
+fit <- rpart(fechado ~ ., method = "class", data = treinamento)
+
+head(predict(fit, type = "class"))
+
+rpart.plot(fit)
+```
+```{r}
+
+predict(fit)
+
+
+```
 Random Forest
 
 ```{r}
 # Fit
+(rf <- ranger(fechado ~ ., classification = TRUE, data = treinamento))
 
+```
+O erro da previsão do treinamento é de 10.41%.
+
+``` {r}
+# matriz de confusão para as previsões no conjunto de treinamento
+rf$confusion.matrix
+
+```
+A matriz de confusão é baseada nos dados OOB. As linhas da matriz indicam a categoria da resposta observada e as colunas indicam as categorias classificadas.
 
 # Predição
+``` {r}
+# resultado 1 ou 0
 
+#predict(rf, teste)$predictions 
+
+#probabilidade
+
+rf <- ranger(fechado ~ ., classification = TRUE, probability = TRUE, 
+             data = treinamento)
+
+#predict(rf, teste)$predictions
+
+``` 
+
+Avaliar hiperparâmetros
+``` {r}
+
+# Avaliar combinação de mtry e número de árvores
+
+tibble(arvores = seq(25, 500, 25))
+
+resultados_floresta <- crossing (mtry = c(4, 8, 15,19),
+                        n_arvores = c(1:15, seq(25, 500, 25)))
+
+ajusta <- function(mtry, n_arvores) {
+  
+  rf <- ranger(fechado ~ ., num.trees = n_arvores, mtry = mtry, data = treinamento)
+  
+  return(rf$prediction.error)
+}
+
+resultados_floresta <- resultados_floresta %>% 
+  mutate(erro = map2_dbl(mtry, n_arvores, ajusta))
+head(resultados_floresta)
+
+```
+
+```{r}
+resultados_floresta %>% 
+  arrange(erro)
+
+```
+Conforme observado na tabela acima, a combinação que diminui o erro do modelo é com mtry = 4 e o n_arvores = 350.
+
+
+```{r}
+resultados_floresta %>% 
+  mutate(mtry = factor(mtry)) %>% 
+  ggplot(aes(n_arvores, erro, group = mtry, color = mtry)) +
+    geom_line(size = 1.2) +
+    labs(x = "Números de Árvores", y = "Erro de Classificação (OOB)") + 
+    theme_bw()
+```
+
+``` {r}
+# Importância
+
+#rownames(treinamento)
+
+rf1 <- ranger(fechado ~ ., importance = "permutation", data = treinamento)
+vip::vip(rf1, aesthetics = list(fill = "#FF5757"))
+
+```
+
+```{r}
+
+rf <- ranger(fechado ~ ., data = treinamento)
+
+head(predict(rf, teste, type="response")$predictions)
+
+rf <- ranger(fechado ~ ., probability = TRUE, data = treinamento)
+
+head(predict(rf, teste, type="response")$predictions)
+
+```
+
+```{r}
+
+prob_fechado <- predict(rf, teste, type = "response")$predictions[,2]
+
+table(observado = teste$fechado,
+      predito = ifelse(prob_fechado > .5, 1, 0))
+
+rf$prediction.error
+
+```
+``` {r}
+desempenho <- roc(teste$fechado, prob_fechado)
+
+coords(desempenho, .5, ret = c("1-accuracy", "sensitivity", "specificity", "ppv", "npv"))
+
+
+```
 
 # Calculo EQM
 #EQM <- 
