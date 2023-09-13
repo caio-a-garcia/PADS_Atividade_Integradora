@@ -31,8 +31,8 @@ library(ada)          #Biblioteca para adaBoosting
 ```{r}
 df <- read.csv("data_2012.csv")
 
-skim(df)
-summary(df)
+head(skim(df))
+head(summary(df))
 ```
 
 # Vamos considerar os seguintes modelos:
@@ -94,16 +94,16 @@ Por fim analisamos individualmente os casos de verdadeiras ocorrências de ambos
 Váriáveis identificadas para relevância:
 ```{r}
 
-prediction_vars <- c(".")
+prediction_vars <-c("log_sales", "fixed_assets", "tang_assets", "profit_margin", "material_exp", "inc_bef_tax", "profit_loss_year", "personnel_exp", "curr_assets")
 
 formula <- paste("fechado ~", paste(prediction_vars, collapse = " + "))
 ```
 
-# modelos:
+# Modelos:
 
 ## Modelo 1
 
-Regressão Logística
+#### Regressão Logística
 
 ```{r}
 resultados_logist <- tibble(modelo = c("primeiro", "segundo"),
@@ -161,6 +161,10 @@ resultados_logist$sensitivity[resultados_logist$modelo == "primeiro"] <- sensiti
 resultados_logist$specificity[resultados_logist$modelo == "primeiro"] <- specificity_value
 ```
 
+```{r}
+plot(roc_obj, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1 - Specificity", ylab = "Sensitivity")
+```
+
 
 Segunda iteração:
 Grupo de variáveis "prediction_vars"
@@ -210,7 +214,17 @@ resultados_logist$sensitivity[resultados_logist$modelo == "segundo"] <- sensitiv
 resultados_logist$specificity[resultados_logist$modelo == "segundo"] <- specificity_value
 ```
 
+```{r}
+plot(roc_obj, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1 - Specificity", ylab = "Sensitivity")
+```
+
+
 ### Melhores resultados do modelo Logístico:
+
+```{r}
+resultados_logist
+```
+
 
 ```{r}
 best_row_idx <- which.max(resultados_logist$AUC)
@@ -226,7 +240,7 @@ resultados$specificity[resultados$modelo == "Logistic"] <- best_model$specificit
 
 ## Modelo 2
 
-Encolhimento - LASSO
+#### Encolhimento - LASSO
 
 retiramos as variáveis não numéricas do modelo para simplificar a predição,
 escolhemos também o lasso para auxiliar no processo de seleção de variáveis.
@@ -310,7 +324,7 @@ plot(roc_obj_lasso, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1
 ```
 
 ## Modelo 3
-Random Forest
+#### Random Forest
 
 ```{r}
 # Fit do modelo Random Fortest utilizando todas as variáveis
@@ -376,7 +390,6 @@ Mostrar variáveis com maior grau de importância para o modelo:
 
 rf1 <- ranger(fechado ~ ., importance = "permutation", data = treinamento)
 vip::vip(rf1, aesthetics = list(fill = "#FF5757"))
-
 ```
 
 Modelo com os hiperparâmetros otimizados do modelo anterior:
@@ -423,9 +436,9 @@ resultados$specificity[resultados$modelo == "Random Forest"] <- desempenho$speci
 
 ## Modelo 4
 
-Boosting:
+#### Boosting:
 
-AdaBoosting:
+- AdaBoosting
 
 ```{r}
 # Fit an AdaBoost model
@@ -480,6 +493,3 @@ plot(roc_obj_boost, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1
 ```{r}
 resultados
 ```
-
-
-Sensibilidade definida para casos de "aberto verdadeiro" e Specificidade definida para casos de "fechado verdadeiros"
