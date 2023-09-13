@@ -333,12 +333,12 @@ Avaliar hiperparâmetros
 
 tibble(arvores = seq(25, 500, 25))
 
-resultados_floresta <- crossing (mtry = c(4, 8, 15,19),
-                        n_arvores = c(1:15, seq(25, 500, 25)))
+resultados_floresta <- crossing (mtry = c(4, 8),
+                        n_arvores = c(1:15, seq(50, 500, 50)))
 
 ajusta <- function(mtry, n_arvores) {
   
-  rf <- ranger(fechado ~ .-comp_id, num.trees = n_arvores, mtry = mtry, data = treinamento)
+  rf <- ranger(fechado ~ ., num.trees = n_arvores, mtry = mtry, data = treinamento)
   
   return(rf$prediction.error)
 }
@@ -410,17 +410,14 @@ roc_obj_rf <- roc(teste$fechado, prob_fechado)
 desempenho <- coords(roc_obj_rf, 0.18, ret = c("1-accuracy", "sensitivity", "specificity", "ppv", "npv"))
 
 auc_value_rf <- auc(roc_obj_rf)
-
-sensitivity_value_rf <- sensitivity(roc_obj_rf)
-specificity_value_rf <- specificity(roc_obj_rf)
 ```
 
 ```{r}
 # Salvando resultados:
-resultados_floresta$accuracy[resultados$modelo == "Random Forest"] <- 0.5
-resultados_floresta$AUC[resultados$modelo == "Random Forest"] <- auc_value_rf
-resultados_floresta$sensitivity[resultados$modelo == "Random Forest"] <- sensitivity_value_rf
-resultados_floresta$specificity[resultados$modelo == "Random Forest"] <- specificity_value_rf
+resultados$accuracy[resultados$modelo == "Random Forest"] <- (1-desempenho$`1-accuracy`)
+resultados$AUC[resultados$modelo == "Random Forest"] <- auc_value_rf
+resultados$sensitivity[resultados$modelo == "Random Forest"] <-desempenho$sensitivity
+resultados$specificity[resultados$modelo == "Random Forest"] <- desempenho$specificity
 ```
 
 
