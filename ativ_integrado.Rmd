@@ -9,6 +9,7 @@ date: "2023-09-06"
 ```{r setup, include=FALSE}
 
 library(tidyverse)
+library(tidymodels)
 library(dbplyr)
 library(ggplot2)      #Biblioteca para plots gráficos
 library(rpart)        #Biblioteca para árvore de regressão
@@ -41,7 +42,7 @@ df$ind2 <- as.factor(df$ind2)
 df$ind <- as.factor(df$ind)
 
 # Verificar se a transformação funcionou
-str(df)
+#str(df)
 
 ```
 
@@ -64,6 +65,7 @@ str(df)
 ```{r}
 df <- df %>% 
   mutate(fechado = factor(fechado, levels = c(0, 1)))
+
 ```
 
 
@@ -305,28 +307,10 @@ resultados$specificity[resultados$modelo == "Shrinkage"] <- specificity_value_la
 ```
 
 
-
-## Modelo 3
-
-Árvore de Regressão
-
-```{r}
-fit <- rpart(fechado ~ ., method = "class", data = treinamento)
-
-head(predict(fit, type = "class"))
-
-rpart.plot(fit)
-```
-```{r}
-
-predict(fit)
-
-
-```
 Random Forest
 
 ```{r}
-# Fit
+# Fit do modelo Random Fortest utilizando todas as variáveis
 (rf <- ranger(fechado ~ ., classification = TRUE, data = treinamento))
 
 ```
@@ -338,21 +322,6 @@ rf$confusion.matrix
 
 ```
 A matriz de confusão é baseada nos dados OOB. As linhas da matriz indicam a categoria da resposta observada e as colunas indicam as categorias classificadas.
-
-# Predição
-``` {r}
-# resultado 1 ou 0
-
-#predict(rf, teste)$predictions 
-
-#probabilidade
-
-rf <- ranger(fechado ~ ., classification = TRUE, probability = TRUE, 
-             data = treinamento)
-
-#predict(rf, teste)$predictions
-
-``` 
 
 Avaliar hiperparâmetros
 ``` {r}
@@ -385,6 +354,8 @@ resultados_floresta %>%
 Conforme observado na tabela acima, a combinação que diminui o erro do modelo é com mtry = 4 e o n_arvores = 350.
 
 
+Este gráfico mostra como o erro de classificação OOB varia com diferentes números de árvores e para diferentes valores de mtry.
+
 ```{r}
 resultados_floresta %>% 
   mutate(mtry = factor(mtry)) %>% 
@@ -392,12 +363,11 @@ resultados_floresta %>%
     geom_line(size = 1.2) +
     labs(x = "Números de Árvores", y = "Erro de Classificação (OOB)") + 
     theme_bw()
+
 ```
 
 ``` {r}
 # Importância
-
-#rownames(treinamento)
 
 rf1 <- ranger(fechado ~ ., importance = "permutation", data = treinamento)
 vip::vip(rf1, aesthetics = list(fill = "#FF5757"))
@@ -406,33 +376,68 @@ vip::vip(rf1, aesthetics = list(fill = "#FF5757"))
 
 ```{r}
 
-rf <- ranger(fechado ~ ., data = treinamento)
-
-head(predict(rf, teste, type="response")$predictions)
-
-rf <- ranger(fechado ~ ., probability = TRUE, data = treinamento)
+rf <- ranger(fechado ~ ., mtry = 4, num.trees = 350, probability = TRUE, data = treinamento)
 
 head(predict(rf, teste, type="response")$predictions)
 
 ```
 
 ```{r}
-
+# Prever probabilidades
 prob_fechado <- predict(rf, teste, type = "response")$predictions[,2]
 
-table(observado = teste$fechado,
-      predito = ifelse(prob_fechado > .5, 1, 0))
+# Classificar as previsões com base no limiar
+predicoes <- ifelse(prob_fechado > .18, 1, 0)
 
-rf$prediction.error
+# Gerar matriz de confusão
+matriz_confusao <- table(observado = teste$fechado, predito = predicoes)
 
+# Calcular taxa de erro
+erro_calculado <- sum(teste$fechado != predicoes) / length(teste$fechado)
+
+# Matriz e erro
+list(matriz_confusao, erro_calculado)
 ```
 ``` {r}
 desempenho <- roc(teste$fechado, prob_fechado)
 
-coords(desempenho, .5, ret = c("1-accuracy", "sensitivity", "specificity", "ppv", "npv"))
+coords(desempenho, 0.18, ret = c("1-accuracy", "sensitivity", "specificity", "ppv", "npv"))
 
 
 ```
+
+```{r}
+
+### VERIFICARRRRRR
+arvore <- rpart (fechado ~. , data = treinamento)
+
+pred_arvore <- predict(arvore, teste)
+
+tibble(modelo = "floresta aleatória", 
+       probabilidade = predict_arvore[,2],
+       classe = teste$fechado) %>% 
+  bind_rows(tibble(modelo = "floreste aleatória",
+                   probabilidade = predict(rf, teste, type = "response")$predictions[,2],
+                   classe = teste$fechado)) %>% 
+  group_by(modelo) %>% 
+  # roc_auc(classe, probabilidade, event_level = "second")
+  roc_curve(classe, probabilidade, event_level = "second") %>% 
+  autoplot()
+
+```
+
+
+```{r}
+# Salvando resultados:
+resultados_floresta$accuracy[resultados_logist$modelo == "primeiro"] <- accuracy
+resultados_logist$AUC[resultados_logist$modelo == "primeiro"] <- auc_value
+resultados_logist$sensitivity[resultados_logist$modelo == "primeiro"] <- sensitivity_value
+resultados_logist$specificity[resultados_logist$modelo == "primeiro"] <- specificity_value
+```
+
+
+
+
 
 # Calculo EQM
 EQM <- 
