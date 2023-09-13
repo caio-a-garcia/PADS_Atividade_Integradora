@@ -17,13 +17,15 @@ library(ranger)       #Biblioteca para Random Forest
 library(janitor)      #Biblioteca pra remoção de colunas
 library(glmnet)       #Biblioteca para modelos de regressão com encolhimento (Ridge, LASSO, elastic-net)
 library(plotmo)       #Plotar os gráficos dos coeficientes Ridge
+library(pROC)
+library(caret)        #Biblioteca para confusion matrix
 
 ```
 
 # Lendo os dados
 
 ```{r}
-df <- read.csv("data_2012_numerical.csv")
+df <- read.csv("data_2012.csv")
 
 skim(df)
 summary(df)
@@ -46,6 +48,12 @@ summary(df)
 # Treinamento x Teste
 
 ```{r}
+df <- df %>% 
+  mutate(fechado = factor(fechado, levels = c(0, 1)))
+```
+
+
+```{r}
 set.seed(123)
 
 splits <- initial_split(df, prop = .8)
@@ -57,24 +65,22 @@ teste <- testing(splits)
 # Tabela de comparação dos modelos de predição
 
 ```{r}
-resultados <- tibble(modelo = c("Linear", "Shrinkage", 
+resultados <- tibble(modelo = c("Logistic", "Shrinkage", 
                                 "Random Forest", "Boosting"),
-                     EQM = NA,
-                     R_squared = NA)
+                     accuracy = NA,
+                     AUC = NA,
+                     sensitivity = NA,
+                     specificity = NA)
 ```
 
-Obs.: As métricas escolhidas para avaliar o desempenho dos métodos são o Erro quadrático médio (EQM) e o "R quadrado" (R2).
+Obs.: As métricas escolhidas para avaliar o desempenho foram a acurácia geral, a AUC da curva ROC, sensibilidade (verdadeiro positivo) e specificidae (verdadeiro negativo).
 
-O EQM é uma boa e simples métrica para visualização da média da diferença entre a predição e o valor "alvo".
+(Escrever mais detalhes de escolha das métricas)
 
-O R2 é uma métrica mais visual, indicando a linearidade entre os valores predidos e "alvos", variando entre 0 e 1 (com valores mais próximos de 1, sendo melhores, indicando maior relação entre predição e alvo).
-
-
-
-Váriáveis identificadas com modelo stepwise para relevância:
+Váriáveis identificadas para relevância:
 ```{r}
 
-prediction_vars <- c('balsheet_notfullyear', 'labor_avg', 'birth_year', 'personnel_exp', 'inventories', 'inoffice_days', 'log_sales', 'curr_liab')
+prediction_vars <- c()
 
 formula <- paste("fechado ~", paste(prediction_vars, collapse = " + "))
 ```
@@ -83,57 +89,118 @@ formula <- paste("fechado ~", paste(prediction_vars, collapse = " + "))
 
 ## Modelo 1
 
-Regressão Linear
+Regressão Logística
 
 ```{r}
-resultados_linear <- tibble(modelo = c("All_var", "Stepwise_var"),
-                            EQM = NA,
-                            R_squared = NA)
+resultados_logist <- tibble(modelo = c("primeiro", "segundo"),
+                            accuracy = NA,
+                            AUC = NA,
+                            sensitivity = NA,
+                            specificity = NA)
 ```
+
 
 Primeira iteração:
 Todas as variáveis menos comp_id
 
 ```{r}
 # Fit
-fit_lm <- lm(fechado ~ .-comp_id, data = treinamento)
+fit_logistic <- glm(fechado ~ .-comp_id, data = treinamento, family = binomial)
 
-# Predição
-depend_predict_lm <- predict(fit_lm, newdata = teste)
+# Predição probabilidade de ser 1
+depend_predict_logistic <- predict(fit_logistic, newdata = teste, type = "response")
 
-# Calculo EQM
-EQM <- mean((teste$fechado - depend_predict_lm)^2)
+# Convertendo probabilidade para binário:
+depend_predict_bin <- ifelse(depend_predict_logistic > 0.5, 1, 0)
 
-# Calculo R quadrado
-r2 <- summary(fit_lm)$r.squared
+# Calculando acurácia:
+accuracy <- mean(depend_predict_bin == teste$fechado)
 
-# Salvando resultados:
-resultados_linear$EQM[resultados_linear$modelo == "All_var"] <- EQM
-resultados_linear$R_squared[resultados_linear$modelo == "All_var"] <- r2
 ```
+
+```{r}
+# Create a ROC curve object
+roc_obj <- roc(teste$fechado, depend_predict_logistic)
+
+# Calculate AUC
+auc_value <- auc(roc_obj)
+
+
+# Calculate sensitivity and specificity
+depend_predict_bin <- as.factor(depend_predict_bin)
+teste$fechado <- as.factor(teste$fechado)
+
+# Cria matrix de confusão
+conf_matrix <- confusionMatrix(depend_predict_bin, teste$fechado)
+
+sensitivity_value <- conf_matrix$byClass["Sensitivity"]
+specificity_value <- conf_matrix$byClass["Specificity"]
+```
+
+```{r}
+# Salvando resultados:
+resultados_logist$accuracy[resultados_logist$modelo == "primeiro"] <- accuracy
+resultados_logist$AUC[resultados_logist$modelo == "primeiro"] <- auc_value
+resultados_logist$sensitivity[resultados_logist$modelo == "primeiro"] <- sensitivity_value
+resultados_logist$specificity[resultados_logist$modelo == "primeiro"] <- specificity_value
+```
+
+
+Segunda iteração:
+Grupo de variáveis "prediction_vars"
+
 ```{r}
 # Fit
-fit_lm <- lm(formula, data = treinamento)
+fit_logistic <- glm(formula, data = treinamento, family = binomial)
 
-# Predição
-depend_predict_lm <- predict(fit_lm, newdata = teste)
+# Predição probabilidade de ser 1
+depend_predict_logistic <- predict(fit_logistic, newdata = teste, type = "response")
 
-# Calculo EQM
-EQM <- mean((teste$fechado - depend_predict_lm)^2)
+# Convertendo probabilidade para binário:
+depend_predict_bin <- ifelse(depend_predict_logistic > 0.5, 1, 0)
 
-# Calculo R quadrado
-r2 <- summary(fit_lm)$r.squared
-
-# Salvando resultados:
-resultados_linear$EQM[resultados_linear$modelo == "Stepwise_var"] <- EQM
-resultados_linear$R_squared[resultados_linear$modelo == "Stepwise_var"] <- r2
+# Calculando acurácia:
+accuracy <- mean(depend_predict_bin == teste$fechado)
 ```
 
-
-Melhores resultados do modelo Linear:
 ```{r}
-resultados$EQM[resultados$modelo == "Linear"] <- max(resultados_linear$EQM)
-resultados$EQM[resultados$modelo == "Linear"] <- max(resultados_linear$R_squared)
+# Create a ROC curve object
+roc_obj <- roc(teste$fechado, depend_predict_logistic)
+
+# Calculate AUC
+auc_value <- auc(roc_obj)
+
+
+# Calculate sensitivity and specificity
+depend_predict_bin <- as.factor(depend_predict_bin)
+teste$fechado <- as.factor(teste$fechado)
+
+# Cria matrix de confusão
+conf_matrix <- confusionMatrix(depend_predict_bin, teste$fechado)
+
+sensitivity_value <- conf_matrix$byClass["Sensitivity"]
+specificity_value <- conf_matrix$byClass["Specificity"]
+```
+
+```{r}
+# Salvando resultados:
+resultados_logist$accuracy[resultados_logist$modelo == "primeiro"] <- accuracy
+resultados_logist$AUC[resultados_logist$modelo == "primeiro"] <- auc_value
+resultados_logist$sensitivity[resultados_logist$modelo == "primeiro"] <- sensitivity_value
+resultados_logist$specificity[resultados_logist$modelo == "primeiro"] <- specificity_value
+```
+
+### Melhores resultados do modelo Logístico:
+
+```{r}
+best_row_idx <- which.max(resultados_logist$AUC)
+best_model <- resultados_logist[best_row_idx, ]
+
+
+resultados$accuracy[resultados$modelo == "Logistic"] <- best_model$accuracy
+resultados$AUC[resultados$modelo == "Logistic"] <- best_model$AUC
+resultados$sensitivity[resultados$modelo == "Logistic"] <- best_model$sensitivity
+resultados$specificity[resultados$modelo == "Logistic"] <- best_model$specificity
 ```
 
 
@@ -157,6 +224,7 @@ y_test <- teste$fechado
 #definindo sequência de lambda
 lambda_seq <- 10^seq(10, -2, length=100)
 ```
+
 
 ```{r}
 # Fit
