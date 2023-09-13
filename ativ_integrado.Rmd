@@ -21,6 +21,7 @@ library(glmnet)       #Biblioteca para modelos de regressão com encolhimento (R
 library(plotmo)       #Plotar os gráficos dos coeficientes Ridge
 library(pROC)
 library(caret)        #Biblioteca para confusion matrix
+library(ada)          #Biblioteca para adaBoosting
 
 ```
 
@@ -63,9 +64,12 @@ str(df)
 
 ```{r}
 df <- df %>% 
-  mutate(fechado = factor(fechado, levels = c(0, 1)))
+  mutate(fechado = factor(fechado, levels = c(0, 1), labels = c("open", "closed")))
 ```
 
+```{r}
+table(df$fechado)
+```
 
 ```{r}
 set.seed(123)
@@ -74,6 +78,14 @@ splits <- initial_split(df, prop = .8, strata ='fechado')
 
 treinamento <- training(splits)
 teste <- testing(splits)
+```
+
+```{r}
+table(treinamento$fechado)
+```
+
+```{r}
+table(teste$fechado)
 ```
 
 # Tabela de comparação dos modelos de predição
@@ -94,7 +106,7 @@ Obs.: As métricas escolhidas para avaliar o desempenho foram a acurácia geral,
 Váriáveis identificadas para relevância:
 ```{r}
 
-prediction_vars <- c()
+prediction_vars <- c(".")
 
 formula <- paste("fechado ~", paste(prediction_vars, collapse = " + "))
 ```
@@ -125,7 +137,7 @@ fit_logistic <- glm(fechado ~ .-comp_id, data = treinamento, family = binomial)
 depend_predict_logistic <- predict(fit_logistic, newdata = teste, type = "response")
 
 # Convertendo probabilidade para binário:
-depend_predict_bin <- ifelse(depend_predict_logistic > 0.5, 1, 0)
+depend_predict_bin <- ifelse(depend_predict_logistic > 0.5, "closed", "open")
 
 # Calculando acurácia:
 accuracy <- mean(depend_predict_bin == teste$fechado)
@@ -144,10 +156,10 @@ auc_value <- auc(roc_obj)
 
 # Calculate sensitivity and specificity
 depend_predict_bin <- as.factor(depend_predict_bin)
-teste$fechado <- as.factor(teste$fechado)
+teste_bin <- as.factor(teste$fechado)
 
 # Cria matrix de confusão
-conf_matrix <- confusionMatrix(depend_predict_bin, teste$fechado)
+conf_matrix <- confusionMatrix(depend_predict_bin, teste_bin)
 
 sensitivity_value <- conf_matrix$byClass["Sensitivity"]
 specificity_value <- conf_matrix$byClass["Specificity"]
@@ -173,7 +185,7 @@ fit_logistic <- glm(formula, data = treinamento, family = binomial)
 depend_predict_logistic <- predict(fit_logistic, newdata = teste, type = "response")
 
 # Convertendo probabilidade para binário:
-depend_predict_bin <- ifelse(depend_predict_logistic > 0.5, 1, 0)
+depend_predict_bin <- ifelse(depend_predict_logistic > 0.5, "closed", "open")
 
 # Calculando acurácia:
 accuracy <- mean(depend_predict_bin == teste$fechado)
@@ -204,10 +216,10 @@ Salvando resultados:
 
 ```{r}
 # Salvando resultados:
-resultados_logist$accuracy[resultados_logist$modelo == "primeiro"] <- accuracy
-resultados_logist$AUC[resultados_logist$modelo == "primeiro"] <- auc_value
-resultados_logist$sensitivity[resultados_logist$modelo == "primeiro"] <- sensitivity_value
-resultados_logist$specificity[resultados_logist$modelo == "primeiro"] <- specificity_value
+resultados_logist$accuracy[resultados_logist$modelo == "segundo"] <- accuracy
+resultados_logist$AUC[resultados_logist$modelo == "segundo"] <- auc_value
+resultados_logist$sensitivity[resultados_logist$modelo == "segundo"] <- sensitivity_value
+resultados_logist$specificity[resultados_logist$modelo == "segundo"] <- specificity_value
 ```
 
 ### Melhores resultados do modelo Logístico:
@@ -247,14 +259,15 @@ x_test <- as.matrix(teste[, -c(which(names(teste)=="fechado"), which(names(teste
 y_test <- teste$fechado
 
 #definindo sequência de lambda
-lambda_seq <- 10^seq(10, -2, length=100)
+lambda_seq <- 10^seq(1, -4, length=100)
 ```
 
 Primeiro fit, otimizando lambda com cross-validation:
 
 ```{r}
 # LASSO com cross-validation para econtrar lambda ótimo:
-fit_lasso_cv <- cv.glmnet(x, y, family = "binomial", alpha = 1)
+fit_lasso_cv <- cv.glmnet(x, y, family = "binomial", 
+                          alpha = 1, lambda = lambda_seq)
 
 lambda_best <- fit_lasso_cv$lambda.min
 ```
@@ -266,7 +279,7 @@ Predição com fit do modelo e lambda otimizado:
 depend_predict_logistic_lasso <- predict(fit_lasso_cv, newx = x_test, s = lambda_best, type = "response")
 
 # Convert probabilities to binary predictions
-depend_predict_bin_lasso <- ifelse(depend_predict_logistic_lasso > 0.5, 1, 0)
+depend_predict_bin_lasso <- ifelse(depend_predict_logistic_lasso > 0.5, "closed", "open")
 
 # Calculate accuracy
 accuracy_lasso <- mean(depend_predict_bin_lasso == y_test)
@@ -304,7 +317,9 @@ resultados$sensitivity[resultados$modelo == "Shrinkage"] <- sensitivity_value_la
 resultados$specificity[resultados$modelo == "Shrinkage"] <- specificity_value_lasso
 ```
 
-
+```{r}
+plot(roc_obj_lasso, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1 - Specificity", ylab = "Sensitivity")
+```
 
 ## Modelo 3
 
@@ -435,38 +450,69 @@ coords(desempenho, .5, ret = c("1-accuracy", "sensitivity", "specificity", "ppv"
 ```
 
 # Calculo EQM
-EQM <- 
+#EQM <- 
 
 # Calculo R quadrado
-r2 <- 
+#r2 <- 
 
 # Salvando resultados:
-resultados$EQM[resultados$modelo == "modelo"] <- EQM
-resultados$R_squared[resultados$modelo == "modelo"] <- r2
+#resultados$EQM[resultados$modelo == "modelo"] <- EQM
+#resultados$R_squared[resultados$modelo == "modelo"] <- r2
 ```
 
 ## Modelo 4
 
-Boosting
+Boosting:
+
+AdaBoosting:
 
 ```{r}
-# Fit
-
-
-# Predição
-
-
-# Calculo EQM
-EQM <- 
-
-# Calculo R quadrado
-r2 <- 
-
-# Salvando resultados:
-resultados$EQM[resultados$modelo == "modelo"] <- EQM
-resultados$R_squared[resultados$modelo == "modelo"] <- r2
+# Fit an AdaBoost model
+boost_model <- ada(fechado ~ . -comp_id, data = treinamento)
 ```
 
+Rodando modelo de predição:
+
+```{r}
+# Predict using the model on the test set
+boost_pred <- predict(boost_model, newdata = teste)
+
+# Extract predicted probabilities for class 1 from the AdaBoost model
+boost_pred_prob <- predict(boost_model, newdata = teste, type = "prob")[, 2]
+
+# Calculate accuracy
+boost_accuracy <- mean(boost_pred == teste$fechado)
+```
+
+Calculando métricas de desempenho:
+
+```{r}
+# Create a ROC curve object
+roc_obj_boost <- roc(teste$fechado, boost_pred_prob)
+
+# Calculate AUC
+auc_value_boost <- auc(roc_obj_boost)
+
+# Create a confusion matrix
+conf_matrix_boost <- confusionMatrix(boost_pred, teste$fechado)
+
+# Calculate sensitivity and specificity
+sensitivity_value_boost <- conf_matrix_boost$byClass["Sensitivity"]
+specificity_value_boost <- conf_matrix_boost$byClass["Specificity"]
+```
+
+Salvando resultados
+
+```{r}
+resultados$accuracy[resultados$modelo == "Boosting"] <- boost_accuracy
+resultados$AUC[resultados$modelo == "Boosting"] <- auc_value_boost
+resultados$sensitivity[resultados$modelo == "Boosting"] <- sensitivity_value_boost
+resultados$specificity[resultados$modelo == "Boosting"] <- specificity_value_boost
+```
+
+```{r}
+plot(roc_obj_boost, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1 - Specificity", ylab = "Sensitivity")
+```
 
 # Conferindo Resultados
 
@@ -474,3 +520,5 @@ resultados$R_squared[resultados$modelo == "modelo"] <- r2
 resultados
 ```
 
+
+Sensibilidade definida para casos de "aberto verdadeiro" e Specificidade definida para casos de "fechado verdadeiros"
