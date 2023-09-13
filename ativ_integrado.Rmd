@@ -118,6 +118,8 @@ accuracy <- mean(depend_predict_bin == teste$fechado)
 
 ```
 
+Calculando métricas de desempenho:
+
 ```{r}
 # Create a ROC curve object
 roc_obj <- roc(teste$fechado, depend_predict_logistic)
@@ -163,6 +165,8 @@ depend_predict_bin <- ifelse(depend_predict_logistic > 0.5, 1, 0)
 accuracy <- mean(depend_predict_bin == teste$fechado)
 ```
 
+Calculando métricas de desempenho:
+
 ```{r}
 # Create a ROC curve object
 roc_obj <- roc(teste$fechado, depend_predict_logistic)
@@ -181,6 +185,8 @@ conf_matrix <- confusionMatrix(depend_predict_bin, teste$fechado)
 sensitivity_value <- conf_matrix$byClass["Sensitivity"]
 specificity_value <- conf_matrix$byClass["Specificity"]
 ```
+
+Salvando resultados:
 
 ```{r}
 # Salvando resultados:
@@ -208,53 +214,83 @@ resultados$specificity[resultados$modelo == "Logistic"] <- best_model$specificit
 
 Encolhimento - LASSO
 
+retiramos as variáveis não numéricas do modelo para simplificar a predição,
+escolhemos também o lasso para auxiliar no processo de seleção de variáveis.
+
 ```{r}
 # Preparando para glmnet ------------------------------
 
-#str(treinamento)
+columns_exclude <- c("gender", "origin", "region_m")
+# Desconsideramos as variáveis não numéricas para o modelo
 
 #desconsiderando variável dependente:
 
-x <- as.matrix(treinamento[, -which(names(treinamento)=="fechado")]) 
+x <- as.matrix(treinamento[, -c(which(names(treinamento)=="fechado"), which(names(treinamento) %in% columns_exclude))])
+
 y <- treinamento$fechado
 
-x_test <- as.matrix(teste[, -which(names(treinamento)=="fechado")])
+x_test <- as.matrix(teste[, -c(which(names(teste)=="fechado"), which(names(teste) %in% columns_exclude))])
 y_test <- teste$fechado
 
 #definindo sequência de lambda
 lambda_seq <- 10^seq(10, -2, length=100)
 ```
 
+Primeiro fit, otimizando lambda com cross-validation:
 
 ```{r}
-# Fit
-fit_lasso <- glmnet(x, y, alpha = 1)
+# LASSO com cross-validation para econtrar lambda ótimo:
+fit_lasso_cv <- cv.glmnet(x, y, family = "binomial", alpha = 1)
 
-#plot_glmnet(fit_lasso)
-
-# Cross-Validation
-cv_lasso <- cv.glmnet(x, y, alpha = 1)
-
-# Escolhendo melhor valor de lambda com a cross validadtion
-lambda_lasso <- cv_lasso$lambda.1se #melhor valor de lambda (no caso 1 desv. pad. do min)
-
-
-
-# Predição
-depend_predict_lasso <- predict(fit_lasso,
-                                newx = x_test,
-                                s = lambda_lasso)
-
-# Calculo EQM
-EQM_lasso <- mean((y_test - depend_predict_lasso)^2)
-
-# Calculo R quadrado
-r2 <- 1 - (EQM_lasso/var(y_test))
-
-# Salvando resultados:
-resultados$EQM[resultados$modelo == "Shrinkage"] <- EQM_lasso
-resultados$R_squared[resultados$modelo == "Shrinkage"] <- r2
+lambda_best <- fit_lasso_cv$lambda.min
 ```
+
+Predição com fit do modelo e lambda otimizado:
+
+```{r}
+# Predict probabilities for the test data
+depend_predict_logistic_lasso <- predict(fit_lasso_cv, newx = x_test, s = lambda_best, type = "response")
+
+# Convert probabilities to binary predictions
+depend_predict_bin_lasso <- ifelse(depend_predict_logistic_lasso > 0.5, 1, 0)
+
+# Calculate accuracy
+accuracy_lasso <- mean(depend_predict_bin_lasso == y_test)
+```
+
+Calculando métricas de desempenho:
+
+```{r}
+# Create a ROC curve object
+roc_obj_lasso <- roc(y_test, depend_predict_logistic_lasso)
+
+# Calculate AUC
+auc_value_lasso <- auc(roc_obj_lasso)
+
+# Ensure that the predicted values and true labels are factors with the same levels
+depend_predict_bin_lasso <- as.factor(depend_predict_bin_lasso)
+y_test <- as.factor(y_test)
+
+# Create a confusion matrix
+conf_matrix_lasso <- confusionMatrix(depend_predict_bin_lasso, y_test)
+
+# Calculate sensitivity and specificity
+sensitivity_value_lasso <- conf_matrix_lasso$byClass["Sensitivity"]
+specificity_value_lasso <- conf_matrix_lasso$byClass["Specificity"]
+```
+
+Salvando resultados:
+
+```{r}
+# Salvando resultados:
+
+resultados$accuracy[resultados$modelo == "Shrinkage"] <- accuracy_lasso
+resultados$AUC[resultados$modelo == "Shrinkage"] <- auc_value_lasso
+resultados$sensitivity[resultados$modelo == "Shrinkage"] <- sensitivity_value_lasso
+resultados$specificity[resultados$modelo == "Shrinkage"] <- specificity_value_lasso
+```
+
+
 
 ## Modelo 3
 
@@ -299,3 +335,11 @@ r2 <-
 resultados$EQM[resultados$modelo == "modelo"] <- EQM
 resultados$R_squared[resultados$modelo == "modelo"] <- r2
 ```
+
+
+# Conferindo Resultados
+
+```{r}
+resultados
+```
+
