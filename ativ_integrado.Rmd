@@ -33,30 +33,11 @@ df <- read.csv("data_2012.csv")
 
 skim(df)
 summary(df)
-
-```
-###
-
-```{r}
-# Transformando as variáveis em categorias
-df$ind2 <- as.factor(df$ind2)
-df$ind <- as.factor(df$ind)
-
-# Verificar se a transformação funcionou
-#str(df)
-
-```
-
-
-# visualizações iniciais:
-
-```{r}
-
 ```
 
 # Vamos considerar os seguintes modelos:
 
-1.  Linear regresion
+1.  Logistic regresion
 2.  shrinkage methods
 3.  Random Forest
 4.  Boosting methods
@@ -67,7 +48,6 @@ df$ind <- as.factor(df$ind)
 df <- df %>% 
 
   mutate(fechado = factor(fechado, levels = c(0, 1), labels = c("open", "closed")))
-
 ```
 
 ```{r}
@@ -104,7 +84,12 @@ resultados <- tibble(modelo = c("Logistic", "Shrinkage",
 
 Obs.: As métricas escolhidas para avaliar o desempenho foram a acurácia geral, a AUC da curva ROC, sensibilidade (verdadeiro positivo) e specificidae (verdadeiro negativo).
 
-(Escrever mais detalhes de escolha das métricas)
+No caso de nosso modelo a sensibilidade se refere a "verdadeiros abertos" e specificidade aos "verdadeiros fechados".
+
+A acurácia é um bom parâmetro base para avaliar o erro geral do modelo.
+Assim acrescentamos a AUC que nos fornece uma métrica para comparar a discriminação do modelo no geral.
+
+Por fim analisamos individualmente os casos de verdadeiras ocorrências de ambos os casos utilizando a sensibilidade e specificidade.
 
 Váriáveis identificadas para relevância:
 ```{r}
@@ -262,7 +247,7 @@ x_test <- as.matrix(teste[, -c(which(names(teste)=="fechado"), which(names(teste
 y_test <- teste$fechado
 
 #definindo sequência de lambda
-lambda_seq <- 10^seq(1, -4, length=100)
+lambda_seq <- 10^seq(0, -4, length=100)
 ```
 
 Primeiro fit, otimizando lambda com cross-validation:
@@ -320,36 +305,16 @@ resultados$sensitivity[resultados$modelo == "Shrinkage"] <- sensitivity_value_la
 resultados$specificity[resultados$modelo == "Shrinkage"] <- specificity_value_lasso
 ```
 
-<<<<<<< HEAD
-
-=======
 ```{r}
 plot(roc_obj_lasso, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1 - Specificity", ylab = "Sensitivity")
 ```
 
 ## Modelo 3
-
-Árvore de Regressão
-
-```{r}
-fit <- rpart(fechado ~ ., method = "class", data = treinamento)
-
-head(predict(fit, type = "class"))
-
-rpart.plot(fit)
-```
-```{r}
-
-predict(fit)
-
-
-```
->>>>>>> f08de94d8b2c9d3c7e228d8b8392ab43e7321ca0
 Random Forest
 
 ```{r}
 # Fit do modelo Random Fortest utilizando todas as variáveis
-(rf <- ranger(fechado ~ ., classification = TRUE, data = treinamento))
+(rf <- ranger(fechado ~ .-comp_id, classification = TRUE, data = treinamento))
 
 ```
 O erro da previsão do treinamento é de 10.41%.
@@ -373,21 +338,22 @@ resultados_floresta <- crossing (mtry = c(4, 8, 15,19),
 
 ajusta <- function(mtry, n_arvores) {
   
-  rf <- ranger(fechado ~ ., num.trees = n_arvores, mtry = mtry, data = treinamento)
+  rf <- ranger(fechado ~ .-comp_id, num.trees = n_arvores, mtry = mtry, data = treinamento)
   
   return(rf$prediction.error)
 }
 
 resultados_floresta <- resultados_floresta %>% 
   mutate(erro = map2_dbl(mtry, n_arvores, ajusta))
+
 head(resultados_floresta)
 
 ```
 
+Vamos avaliar o menor erro obtido pelo modelo de otimização:
 ```{r}
 resultados_floresta %>% 
   arrange(erro)
-
 ```
 Conforme observado na tabela acima, a combinação que diminui o erro do modelo é com mtry = 4 e o n_arvores = 350.
 
@@ -401,8 +367,9 @@ resultados_floresta %>%
     geom_line(size = 1.2) +
     labs(x = "Números de Árvores", y = "Erro de Classificação (OOB)") + 
     theme_bw()
-
 ```
+
+Mostrar variáveis com maior grau de importância para o modelo:
 
 ``` {r}
 # Importância
@@ -412,81 +379,50 @@ vip::vip(rf1, aesthetics = list(fill = "#FF5757"))
 
 ```
 
+Modelo com os hiperparâmetros otimizados do modelo anterior:
+
 ```{r}
 
-rf <- ranger(fechado ~ ., mtry = 4, num.trees = 350, probability = TRUE, data = treinamento)
+rf_prob <- ranger(fechado ~ ., mtry = 4, num.trees = 350, probability = TRUE, data = treinamento)
 
-head(predict(rf, teste, type="response")$predictions)
+head(predict(rf_prob, teste, type="response")$predictions)
 
 ```
+
+Modelo de predição com o novo fit otimizado:
 
 ```{r}
 # Prever probabilidades
-prob_fechado <- predict(rf, teste, type = "response")$predictions[,2]
+prob_fechado <- predict(rf_prob, teste, type = "response")$predictions[,2]
 
-# Classificar as previsões com base no limiar
-predicoes <- ifelse(prob_fechado > .18, 1, 0)
+table(observado = teste$fechado,
+      predito = ifelse(prob_fechado > .18, "closed", "open"))
 
-# Gerar matriz de confusão
-matriz_confusao <- table(observado = teste$fechado, predito = predicoes)
+rf_prob$prediction.error
 
-# Calcular taxa de erro
-erro_calculado <- sum(teste$fechado != predicoes) / length(teste$fechado)
-
-# Matriz e erro
-list(matriz_confusao, erro_calculado)
 ```
+
+Avaliando métricas de desempenho:
+
 ``` {r}
-desempenho <- roc(teste$fechado, prob_fechado)
+roc_obj_rf <- roc(teste$fechado, prob_fechado)
 
-coords(desempenho, 0.18, ret = c("1-accuracy", "sensitivity", "specificity", "ppv", "npv"))
+desempenho <- coords(roc_obj_rf, 0.18, ret = c("1-accuracy", "sensitivity", "specificity", "ppv", "npv"))
 
+auc_value_rf <- auc(roc_obj_rf)
 
+sensitivity_value_rf <- sensitivity(roc_obj_rf)
+specificity_value_rf <- specificity(roc_obj_rf)
 ```
 
 ```{r}
-
-### VERIFICARRRRRR
-arvore <- rpart (fechado ~. , data = treinamento)
-
-pred_arvore <- predict(arvore, teste)
-
-tibble(modelo = "floresta aleatória", 
-       probabilidade = predict_arvore[,2],
-       classe = teste$fechado) %>% 
-  bind_rows(tibble(modelo = "floreste aleatória",
-                   probabilidade = predict(rf, teste, type = "response")$predictions[,2],
-                   classe = teste$fechado)) %>% 
-  group_by(modelo) %>% 
-  # roc_auc(classe, probabilidade, event_level = "second")
-  roc_curve(classe, probabilidade, event_level = "second") %>% 
-  autoplot()
-
-```
-
-
-```{r}
 # Salvando resultados:
-resultados_floresta$accuracy[resultados_logist$modelo == "primeiro"] <- accuracy
-resultados_logist$AUC[resultados_logist$modelo == "primeiro"] <- auc_value
-resultados_logist$sensitivity[resultados_logist$modelo == "primeiro"] <- sensitivity_value
-resultados_logist$specificity[resultados_logist$modelo == "primeiro"] <- specificity_value
+resultados_floresta$accuracy[resultados$modelo == "Random Forest"] <- 0.5
+resultados_floresta$AUC[resultados$modelo == "Random Forest"] <- auc_value_rf
+resultados_floresta$sensitivity[resultados$modelo == "Random Forest"] <- sensitivity_value_rf
+resultados_floresta$specificity[resultados$modelo == "Random Forest"] <- specificity_value_rf
 ```
 
-
-
-
-
-# Calculo EQM
-#EQM <- 
-
-# Calculo R quadrado
-#r2 <- 
-
-# Salvando resultados:
-#resultados$EQM[resultados$modelo == "modelo"] <- EQM
-#resultados$R_squared[resultados$modelo == "modelo"] <- r2
-```
 
 ## Modelo 4
 
@@ -529,7 +465,7 @@ sensitivity_value_boost <- conf_matrix_boost$byClass["Sensitivity"]
 specificity_value_boost <- conf_matrix_boost$byClass["Specificity"]
 ```
 
-Salvando resultados
+Salvando resultados:
 
 ```{r}
 resultados$accuracy[resultados$modelo == "Boosting"] <- boost_accuracy
