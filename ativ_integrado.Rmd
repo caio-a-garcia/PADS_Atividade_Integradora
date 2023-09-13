@@ -171,7 +171,7 @@ fit_logistic <- glm(formula, data = treinamento, family = binomial)
 depend_predict_logistic <- predict(fit_logistic, newdata = teste, type = "response")
 
 # Convertendo probabilidade para binário:
-depend_predict_bin <- ifelse(depend_predict_logistic > 0.5, 1, 0)
+depend_predict_bin <- ifelse(depend_predict_logistic > 0.5, "closed", "open")
 
 # Calculando acurácia:
 accuracy <- mean(depend_predict_bin == teste$fechado)
@@ -245,14 +245,15 @@ x_test <- as.matrix(teste[, -c(which(names(teste)=="fechado"), which(names(teste
 y_test <- teste$fechado
 
 #definindo sequência de lambda
-lambda_seq <- 10^seq(10, -2, length=100)
+lambda_seq <- 10^seq(1, -4, length=100)
 ```
 
 Primeiro fit, otimizando lambda com cross-validation:
 
 ```{r}
 # LASSO com cross-validation para econtrar lambda ótimo:
-fit_lasso_cv <- cv.glmnet(x, y, family = "binomial", alpha = 1)
+fit_lasso_cv <- cv.glmnet(x, y, family = "binomial", 
+                          alpha = 1, lambda = lambda_seq)
 
 lambda_best <- fit_lasso_cv$lambda.min
 ```
@@ -264,7 +265,7 @@ Predição com fit do modelo e lambda otimizado:
 depend_predict_logistic_lasso <- predict(fit_lasso_cv, newx = x_test, s = lambda_best, type = "response")
 
 # Convert probabilities to binary predictions
-depend_predict_bin_lasso <- ifelse(depend_predict_logistic_lasso > 0.5, 1, 0)
+depend_predict_bin_lasso <- ifelse(depend_predict_logistic_lasso > 0.5, "closed", "open")
 
 # Calculate accuracy
 accuracy_lasso <- mean(depend_predict_bin_lasso == y_test)
@@ -302,7 +303,9 @@ resultados$sensitivity[resultados$modelo == "Shrinkage"] <- sensitivity_value_la
 resultados$specificity[resultados$modelo == "Shrinkage"] <- specificity_value_lasso
 ```
 
-
+```{r}
+plot(roc_obj_lasso, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1 - Specificity", ylab = "Sensitivity")
+```
 
 ## Modelo 3
 
@@ -316,14 +319,14 @@ Random Forest
 
 
 # Calculo EQM
-EQM <- 
+#EQM <- 
 
 # Calculo R quadrado
-r2 <- 
+#r2 <- 
 
 # Salvando resultados:
-resultados$EQM[resultados$modelo == "modelo"] <- EQM
-resultados$R_squared[resultados$modelo == "modelo"] <- r2
+#resultados$EQM[resultados$modelo == "modelo"] <- EQM
+#resultados$R_squared[resultados$modelo == "modelo"] <- r2
 ```
 
 ## Modelo 4
@@ -386,3 +389,5 @@ plot(roc_obj_boost, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1
 resultados
 ```
 
+
+Sensibilidade definida para casos de "aberto verdadeiro" e Specificidade definida para casos de "fechado verdadeiros"
