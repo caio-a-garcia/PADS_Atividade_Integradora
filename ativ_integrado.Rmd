@@ -82,7 +82,7 @@ Váriáveis identificadas para relevância:
 
 prediction_vars <- c()
 
-formula <- paste("fechado ~", paste(prediction_vars, collapse = " + "))
+formula <- paste("fechado ~.", paste(prediction_vars, collapse = " + "))
 ```
 
 # modelos:
