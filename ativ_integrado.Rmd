@@ -9,6 +9,7 @@ date: "2023-09-06"
 ```{r setup, include=FALSE}
 
 library(tidyverse)
+library(tidymodels)
 library(dbplyr)
 library(ggplot2)      #Biblioteca para plots gráficos
 library(rpart)        #Biblioteca para árvore de regressão
@@ -34,6 +35,17 @@ skim(df)
 summary(df)
 
 ```
+###
+
+```{r}
+# Transformando as variáveis em categorias
+df$ind2 <- as.factor(df$ind2)
+df$ind <- as.factor(df$ind)
+
+# Verificar se a transformação funcionou
+#str(df)
+
+```
 
 
 # visualizações iniciais:
@@ -53,7 +65,9 @@ summary(df)
 
 ```{r}
 df <- df %>% 
+
   mutate(fechado = factor(fechado, levels = c(0, 1), labels = c("open", "closed")))
+
 ```
 
 ```{r}
@@ -306,15 +320,19 @@ resultados$sensitivity[resultados$modelo == "Shrinkage"] <- sensitivity_value_la
 resultados$specificity[resultados$modelo == "Shrinkage"] <- specificity_value_lasso
 ```
 
+<<<<<<< HEAD
+
+=======
 ```{r}
 plot(roc_obj_lasso, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1 - Specificity", ylab = "Sensitivity")
 ```
 
 ## Modelo 3
+>>>>>>> f08de94d8b2c9d3c7e228d8b8392ab43e7321ca0
 Random Forest
 
 ```{r}
-# Fit
+# Fit do modelo Random Fortest utilizando todas as variáveis
 (rf <- ranger(fechado ~ .-comp_id, classification = TRUE, data = treinamento))
 
 ```
@@ -326,21 +344,6 @@ rf$confusion.matrix
 
 ```
 A matriz de confusão é baseada nos dados OOB. As linhas da matriz indicam a categoria da resposta observada e as colunas indicam as categorias classificadas.
-
-# Predição
-``` {r}
-# resultado "closed" ou "open"
-
-depend_pred_rf <- predict(rf, teste)$predictions
-
-#probabilidade
-
-rf_prob <- ranger(fechado ~ ., classification = TRUE, probability = TRUE, 
-             data = treinamento)
-
-depend_pred_rf_prob <- predict(rf_prob, teste)$predictions
-
-``` 
 
 Avaliar hiperparâmetros
 ``` {r}
@@ -373,6 +376,8 @@ resultados_floresta %>%
 Conforme observado na tabela acima, a combinação que diminui o erro do modelo é com mtry = 4 e o n_arvores = 350.
 
 
+Este gráfico mostra como o erro de classificação OOB varia com diferentes números de árvores e para diferentes valores de mtry.
+
 ```{r}
 resultados_floresta %>% 
   mutate(mtry = factor(mtry)) %>% 
@@ -380,12 +385,11 @@ resultados_floresta %>%
     geom_line(size = 1.2) +
     labs(x = "Números de Árvores", y = "Erro de Classificação (OOB)") + 
     theme_bw()
+
 ```
 
 ``` {r}
 # Importância
-
-#rownames(treinamento)
 
 rf1 <- ranger(fechado ~ ., importance = "permutation", data = treinamento)
 vip::vip(rf1, aesthetics = list(fill = "#FF5757"))
@@ -394,18 +398,14 @@ vip::vip(rf1, aesthetics = list(fill = "#FF5757"))
 
 ```{r}
 
-rf <- ranger(fechado ~ ., data = treinamento)
-
-head(predict(rf, teste, type="response")$predictions)
-
-rf <- ranger(fechado ~ ., probability = TRUE, data = treinamento)
+rf <- ranger(fechado ~ ., mtry = 4, num.trees = 350, probability = TRUE, data = treinamento)
 
 head(predict(rf, teste, type="response")$predictions)
 
 ```
 
 ```{r}
-
+# Prever probabilidades
 prob_fechado <- predict(rf, teste, type = "response")$predictions[,2]
 
 table(observado = teste$fechado,
@@ -414,14 +414,79 @@ table(observado = teste$fechado,
 rf$prediction.error
 
 ```
-
 ``` {r}
 desempenho <- roc(teste$fechado, prob_fechado)
 
-coords(desempenho, .5, ret = c("1-accuracy", "sensitivity", "specificity", "ppv", "npv"))
+coords(desempenho, 0.18, ret = c("1-accuracy", "sensitivity", "specificity", "ppv", "npv"))
 
 
 ```
+
+```{r}
+
+### VERIFICARRRRRR
+arvore <- rpart (fechado ~. , data = treinamento)
+
+pred_arvore <- predict(arvore, teste)
+
+tibble(modelo = "floresta aleatória", 
+       probabilidade = predict_arvore[,2],
+       classe = teste$fechado) %>% 
+  bind_rows(tibble(modelo = "floreste aleatória",
+                   probabilidade = predict(rf, teste, type = "response")$predictions[,2],
+                   classe = teste$fechado)) %>% 
+  group_by(modelo) %>% 
+  # roc_auc(classe, probabilidade, event_level = "second")
+  roc_curve(classe, probabilidade, event_level = "second") %>% 
+  autoplot()
+
+```
+
+
+```{r}
+# Salvando resultados:
+resultados_floresta$accuracy[resultados_logist$modelo == "primeiro"] <- accuracy
+resultados_logist$AUC[resultados_logist$modelo == "primeiro"] <- auc_value
+resultados_logist$sensitivity[resultados_logist$modelo == "primeiro"] <- sensitivity_value
+resultados_logist$specificity[resultados_logist$modelo == "primeiro"] <- specificity_value
+```
+
+
+
+
+
+```{r}
+
+### VERIFICARRRRRR
+arvore <- rpart (fechado ~. , data = treinamento)
+
+pred_arvore <- predict(arvore, teste)
+
+tibble(modelo = "floresta aleatória", 
+       probabilidade = predict_arvore[,2],
+       classe = teste$fechado) %>% 
+  bind_rows(tibble(modelo = "floreste aleatória",
+                   probabilidade = predict(rf, teste, type = "response")$predictions[,2],
+                   classe = teste$fechado)) %>% 
+  group_by(modelo) %>% 
+  # roc_auc(classe, probabilidade, event_level = "second")
+  roc_curve(classe, probabilidade, event_level = "second") %>% 
+  autoplot()
+
+```
+
+
+```{r}
+# Salvando resultados:
+resultados_floresta$accuracy[resultados_logist$modelo == "primeiro"] <- accuracy
+resultados_logist$AUC[resultados_logist$modelo == "primeiro"] <- auc_value
+resultados_logist$sensitivity[resultados_logist$modelo == "primeiro"] <- sensitivity_value
+resultados_logist$specificity[resultados_logist$modelo == "primeiro"] <- specificity_value
+```
+
+
+
+
 
 
 ## Modelo 4
