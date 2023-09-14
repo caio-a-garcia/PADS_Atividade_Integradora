@@ -226,7 +226,124 @@ resultados_logist
 ```
 
 
+```{r, include=FALSE}
+best_row_idx <- which.max(resultados_logist$AUC)
+best_model <- resultados_logist[best_row_idx, ]
+
+
+resultados$accuracy[resultados$modelo == "Logistic"] <- best_model$accuracy
+resultados$AUC[resultados$modelo == "Logistic"] <- best_model$AUC
+resultados$sensitivity[resultados$modelo == "Logistic"] <- best_model$sensitivity
+resultados$specificity[resultados$modelo == "Logistic"] <- best_model$specificity
+```
+
+
+
+# Modelo 1 parte 2 - Electric boogalo
+
+Vamos agora refazer as iterações do modelo logístico variando o híperparametro de corte para predição na probabilidade.
+
+Primeira Iteração:
+
 ```{r}
+# Fit
+fit_logistic <- glm(fechado ~ .-comp_id, data = treinamento, family = binomial)
+
+# Predição probabilidade de ser 1
+depend_predict_logistic <- predict(fit_logistic, newdata = teste, type = "response")
+
+# Convertendo probabilidade para binário:
+depend_predict_bin <- ifelse(depend_predict_logistic > 0.18, "closed", "open")
+
+# Calculando acurácia:
+accuracy <- mean(depend_predict_bin == teste$fechado)
+
+```
+
+Calculando métricas de desempenho:
+
+```{r, include=FALSE}
+# Create a ROC curve object
+roc_obj <- roc(teste$fechado, depend_predict_logistic)
+
+# Calculate AUC
+auc_value <- auc(roc_obj)
+
+
+# Calculate sensitivity and specificity
+depend_predict_bin <- as.factor(depend_predict_bin)
+teste_bin <- as.factor(teste$fechado)
+
+# Cria matrix de confusão
+conf_matrix <- confusionMatrix(depend_predict_bin, teste_bin)
+
+sensitivity_value <- conf_matrix$byClass["Sensitivity"]
+specificity_value <- conf_matrix$byClass["Specificity"]
+```
+
+```{r, include=FALSE}
+# Salvando resultados:
+resultados_logist$accuracy[resultados_logist$modelo == "primeiro"] <- accuracy
+resultados_logist$AUC[resultados_logist$modelo == "primeiro"] <- auc_value
+resultados_logist$sensitivity[resultados_logist$modelo == "primeiro"] <- sensitivity_value
+resultados_logist$specificity[resultados_logist$modelo == "primeiro"] <- specificity_value
+```
+
+Segunda iteração:
+
+```{r}
+# Fit
+fit_logistic <- glm(formula, data = treinamento, family = binomial)
+
+# Predição probabilidade de ser 1
+depend_predict_logistic <- predict(fit_logistic, newdata = teste, type = "response")
+
+# Convertendo probabilidade para binário:
+depend_predict_bin <- ifelse(depend_predict_logistic > 0.18, "closed", "open")
+
+# Calculando acurácia:
+accuracy <- mean(depend_predict_bin == teste$fechado)
+```
+
+Calculando métricas de desempenho:
+
+```{r, include=FALSE}
+# Create a ROC curve object
+roc_obj <- roc(teste$fechado, depend_predict_logistic)
+
+# Calculate AUC
+auc_value <- auc(roc_obj)
+
+
+# Calculate sensitivity and specificity
+depend_predict_bin <- as.factor(depend_predict_bin)
+teste$fechado <- as.factor(teste$fechado)
+
+# Cria matrix de confusão
+conf_matrix <- confusionMatrix(depend_predict_bin, teste$fechado)
+
+sensitivity_value <- conf_matrix$byClass["Sensitivity"]
+specificity_value <- conf_matrix$byClass["Specificity"]
+```
+
+Salvando resultados:
+
+```{r, include=FALSE}
+# Salvando resultados:
+resultados_logist$accuracy[resultados_logist$modelo == "segundo"] <- accuracy
+resultados_logist$AUC[resultados_logist$modelo == "segundo"] <- auc_value
+resultados_logist$sensitivity[resultados_logist$modelo == "segundo"] <- sensitivity_value
+resultados_logist$specificity[resultados_logist$modelo == "segundo"] <- specificity_value
+```
+
+### Melhores resultados do modelo Logístico:
+
+```{r}
+resultados_logist
+```
+
+
+```{r, include=FALSE}
 best_row_idx <- which.max(resultados_logist$AUC)
 best_model <- resultados_logist[best_row_idx, ]
 
@@ -310,7 +427,7 @@ specificity_value_lasso <- conf_matrix_lasso$byClass["Specificity"]
 
 Salvando resultados:
 
-```{r}
+```{r, include=FALSE}
 # Salvando resultados:
 
 resultados$accuracy[resultados$modelo == "Shrinkage"] <- accuracy_lasso
@@ -322,6 +439,14 @@ resultados$specificity[resultados$modelo == "Shrinkage"] <- specificity_value_la
 ```{r}
 plot(roc_obj_lasso, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1 - Specificity", ylab = "Sensitivity")
 ```
+
+```{r}
+cat("Accuracy:", accuracy_lasso, "\n")
+cat("AUC:", auc_value_lasso, "\n")
+cat("Sensitivity:", sensitivity_value_lasso, "\n")
+cat("Specificity:", specificity_value_lasso, "\n")
+```
+
 
 ## Modelo 3
 #### Random Forest
@@ -388,7 +513,7 @@ Mostrar variáveis com maior grau de importância para o modelo:
 ``` {r}
 # Importância
 
-rf1 <- ranger(fechado ~ ., importance = "permutation", data = treinamento)
+rf1 <- ranger(fechado ~ .-sales, importance = "permutation", data = treinamento)
 vip::vip(rf1, aesthetics = list(fill = "#FF5757"))
 ```
 
@@ -425,12 +550,19 @@ desempenho <- coords(roc_obj_rf, 0.18, ret = c("1-accuracy", "sensitivity", "spe
 auc_value_rf <- auc(roc_obj_rf)
 ```
 
-```{r}
+```{r, include=FALSE}
 # Salvando resultados:
 resultados$accuracy[resultados$modelo == "Random Forest"] <- (1-desempenho$`1-accuracy`)
 resultados$AUC[resultados$modelo == "Random Forest"] <- auc_value_rf
 resultados$sensitivity[resultados$modelo == "Random Forest"] <-desempenho$sensitivity
 resultados$specificity[resultados$modelo == "Random Forest"] <- desempenho$specificity
+```
+
+```{r}
+cat("Accuracy:", (1-desempenho$`1-accuracy`), "\n")
+cat("AUC:", auc_value_rf, "\n")
+cat("Sensitivity:", desempenho$sensitivity, "\n")
+cat("Specificity:", desempenho$specificity, "\n")
 ```
 
 
@@ -477,7 +609,7 @@ specificity_value_boost <- conf_matrix_boost$byClass["Specificity"]
 
 Salvando resultados:
 
-```{r}
+```{r, include=FALSE}
 resultados$accuracy[resultados$modelo == "Boosting"] <- boost_accuracy
 resultados$AUC[resultados$modelo == "Boosting"] <- auc_value_boost
 resultados$sensitivity[resultados$modelo == "Boosting"] <- sensitivity_value_boost
@@ -487,6 +619,14 @@ resultados$specificity[resultados$modelo == "Boosting"] <- specificity_value_boo
 ```{r}
 plot(roc_obj_boost, print.auc = TRUE, grid = TRUE, legacy.axes = TRUE, xlab = "1 - Specificity", ylab = "Sensitivity")
 ```
+
+```{r}
+cat("Accuracy:", boost_accuracy, "\n")
+cat("AUC:", auc_value_boost, "\n")
+cat("Sensitivity:", sensitivity_value_boost, "\n")
+cat("Specificity:", specificity_value_boost, "\n")
+```
+
 
 # Conferindo Resultados
 
