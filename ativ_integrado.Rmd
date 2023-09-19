@@ -456,7 +456,7 @@ cat("Specificity:", specificity_value_lasso, "\n")
 (rf <- ranger(fechado ~ ., classification = TRUE, data = treinamento))
 
 ```
-O erro da previsão do treinamento é de 33.32%.
+O erro da previsão do treinamento é de 11%.
 
 ``` {r}
 # matriz de confusão para as previsões no conjunto de treinamento
@@ -494,7 +494,7 @@ Vamos avaliar o menor erro obtido pelo modelo de otimização:
 resultados_floresta %>% 
   arrange(erro)
 ```
-Conforme observado na tabela acima, a combinação que diminui o erro do modelo é com mtry = 4 e o n_arvores = 450.
+Conforme observado na tabela acima, a combinação que diminui o erro do modelo é com mtry = 4 e o n_arvores = 400.
 
 
 Este gráfico mostra como o erro de classificação OOB varia com diferentes números de árvores e para diferentes valores de mtry.
