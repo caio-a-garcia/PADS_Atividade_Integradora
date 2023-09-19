@@ -119,7 +119,7 @@ Todas as variáveis menos comp_id
 
 ```{r}
 # Fit
-fit_logistic <- glm(fechado ~ .-comp_id, data = treinamento, family = binomial)
+fit_logistic <- glm(fechado ~ ., data = treinamento, family = binomial)
 
 # Predição probabilidade de ser 1
 depend_predict_logistic <- predict(fit_logistic, newdata = teste, type = "response")
@@ -247,7 +247,7 @@ Primeira Iteração:
 
 ```{r}
 # Fit
-fit_logistic <- glm(fechado ~ .-comp_id, data = treinamento, family = binomial)
+fit_logistic <- glm(fechado ~ ., data = treinamento, family = binomial)
 
 # Predição probabilidade de ser 1
 depend_predict_logistic <- predict(fit_logistic, newdata = teste, type = "response")
@@ -453,10 +453,10 @@ cat("Specificity:", specificity_value_lasso, "\n")
 
 ```{r}
 # Fit do modelo Random Fortest utilizando todas as variáveis
-(rf <- ranger(fechado ~ .-comp_id, classification = TRUE, data = treinamento))
+(rf <- ranger(fechado ~ ., classification = TRUE, data = treinamento))
 
 ```
-O erro da previsão do treinamento é de 10.41%.
+O erro da previsão do treinamento é de 33.32%.
 
 ``` {r}
 # matriz de confusão para as previsões no conjunto de treinamento
@@ -494,7 +494,7 @@ Vamos avaliar o menor erro obtido pelo modelo de otimização:
 resultados_floresta %>% 
   arrange(erro)
 ```
-Conforme observado na tabela acima, a combinação que diminui o erro do modelo é com mtry = 4 e o n_arvores = 350.
+Conforme observado na tabela acima, a combinação que diminui o erro do modelo é com mtry = 4 e o n_arvores = 450.
 
 
 Este gráfico mostra como o erro de classificação OOB varia com diferentes números de árvores e para diferentes valores de mtry.
@@ -574,7 +574,7 @@ cat("Specificity:", desempenho$specificity, "\n")
 
 ```{r}
 # Fit an AdaBoost model
-boost_model <- ada(fechado ~ . -comp_id, data = treinamento)
+boost_model <- ada(fechado ~ ., data = treinamento)
 ```
 
 Rodando modelo de predição:
