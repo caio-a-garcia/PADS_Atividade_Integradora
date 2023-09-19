@@ -35,6 +35,7 @@ head(skim(df))
 head(summary(df))
 ```
 
+
 # Vamos considerar os seguintes modelos:
 
 1.  Logistic regresion
@@ -456,7 +457,7 @@ cat("Specificity:", specificity_value_lasso, "\n")
 (rf <- ranger(fechado ~ ., classification = TRUE, data = treinamento))
 
 ```
-O erro da previsão do treinamento é de 33.32%.
+O erro da previsão do treinamento é de 10.60%.
 
 ``` {r}
 # matriz de confusão para as previsões no conjunto de treinamento
@@ -494,7 +495,7 @@ Vamos avaliar o menor erro obtido pelo modelo de otimização:
 resultados_floresta %>% 
   arrange(erro)
 ```
-Conforme observado na tabela acima, a combinação que diminui o erro do modelo é com mtry = 4 e o n_arvores = 450.
+Conforme observado na tabela acima, a combinação que diminui o erro do modelo é com mtry = 8 e n_arvores = 450.
 
 
 Este gráfico mostra como o erro de classificação OOB varia com diferentes números de árvores e para diferentes valores de mtry.
@@ -521,7 +522,7 @@ Modelo com os hiperparâmetros otimizados do modelo anterior:
 
 ```{r}
 
-rf_prob <- ranger(fechado ~ ., mtry = 4, num.trees = 350, probability = TRUE, data = treinamento)
+rf_prob <- ranger(fechado ~ ., mtry = 8, num.trees = 250, probability = TRUE, data = treinamento)
 
 head(predict(rf_prob, teste, type="response")$predictions)
 
